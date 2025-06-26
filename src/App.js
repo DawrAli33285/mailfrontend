@@ -98,7 +98,7 @@ function App() {
     formData.append('codeType', codeType);
 
     try {
-      const response = await fetch('http://localhost:3001/api/convert-template', {
+      const response = await fetch('https://backendmail.vercel.app/api/convert-template', {
         method: 'POST',
         body: formData,
       });
@@ -131,7 +131,7 @@ function App() {
     formData.append('contacts', selectedContactsFile);
 
     try {
-      const response = await fetch('http://localhost:3001/api/extract-emails', {
+      const response = await fetch('https://backendmail.vercel.app/api/extract-emails', {
         method: 'POST',
         body: formData,
       });
@@ -169,7 +169,7 @@ function App() {
     formData.append('subject', emailSubject || 'Your Document');
 
     try {
-      const response = await fetch('http://localhost:3001/api/send-html-template', {
+      const response = await fetch('https://backendmail.vercel.app/api/send-html-template', {
         method: 'POST',
         body: formData,
       });
