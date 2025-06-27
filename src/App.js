@@ -243,13 +243,13 @@ function App() {
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h1 style={{ color: '#333', marginBottom: '10px' }}>PDF to Code Converter & Email System</h1>
-        <p style={{ color: '#666' }}>Upload your PDF file and convert it to HTML, extract emails from CSV, or send HTML email templates</p>
+        <h1 style={{ color: '#333', marginBottom: '10px' }}>Enrichify Email System</h1>
+        <p style={{ color: '#666' }}>send HTML email templates</p>
       </header>
 
       <main style={{ display: 'grid', gap: '30px' }}>
         {/* PDF Conversion Section */}
-        <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', backgroundColor: '#f9f9f9' }}>
+        {/* <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', backgroundColor: '#f9f9f9' }}>
           <h2 style={{ color: '#333', marginBottom: '20px' }}>Upload PDF</h2>
           
           <div style={{ marginBottom: '20px' }}>
@@ -321,13 +321,13 @@ function App() {
           >
             {loading ? 'Converting...' : 'Convert PDF'}
           </button>
-        </div>
+        </div> */}
 
         {/* HTML Template Upload Section */}
         <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', backgroundColor: '#f0f8ff' }}>
           <h2 style={{ color: '#333', marginBottom: '20px' }}>Send HTML Email Template</h2>
           
-          <div style={{ marginBottom: '20px' }}>
+          {/* <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
               Email Subject:
             </label>
@@ -345,7 +345,7 @@ function App() {
                 boxSizing: 'border-box'
               }}
             />
-          </div>
+          </div> */}
 
           <div style={{ marginBottom: '20px' }}>
             <input
