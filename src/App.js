@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
+import axios from 'axios'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -7,6 +8,7 @@ function App() {
   const [error, setError] = useState('');
   const [codeType, setCodeType] = useState('html');
   const [fileInfo, setFileInfo] = useState(null);
+  const [contacts,setContacts]=useState([])
   
   // New state for contacts upload
   const [selectedContactsFile, setSelectedContactsFile] = useState(null);
@@ -22,6 +24,33 @@ function App() {
   const [htmlFileInfo, setHtmlFileInfo] = useState(null);
   const [htmlResult, setHtmlResult] = useState(null);
   const [emailSubject, setEmailSubject] = useState('');
+
+  // New state for enhanced email features
+  const [selectedIndustry, setSelectedIndustry] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [htmlContent, setHtmlContent] = useState('');
+  const [sendImmediate, setSendImmediate] = useState(true);
+
+  // Industry options
+  const industries = [
+    'Technology',
+    'Healthcare',
+    'Finance',
+    'Education',
+    'Retail',
+    'Manufacturing',
+    'Real Estate',
+    'Marketing & Advertising',
+    'Consulting',
+    'Legal Services',
+    'Hospitality',
+    'Transportation',
+    'Energy',
+    'Non-profit',
+    'Government',
+    'Other'
+  ];
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -75,6 +104,13 @@ function App() {
           size: (file.size / 1024).toFixed(2) + ' KB',
           name: file.name
         });
+        
+        // Read the file content and set it to htmlContent
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setHtmlContent(e.target.result);
+        };
+        reader.readAsText(file);
       } else {
         setHtmlError('Please select an HTML file');
         setSelectedHtmlFile(null);
@@ -155,8 +191,19 @@ function App() {
   };
 
   const handleHtmlUpload = async () => {
-    if (!selectedHtmlFile) {
-      setHtmlError('Please select an HTML file first');
+    // Validation
+    if (!htmlContent.trim()) {
+      setHtmlError('Please provide HTML content or upload an HTML file');
+      return;
+    }
+
+    if (!selectedIndustry) {
+      setHtmlError('Please select an industry');
+      return;
+    }
+
+    if (!sendImmediate && (!scheduledDate || !scheduledTime)) {
+      setHtmlError('Please select date and time for scheduled sending');
       return;
     }
 
@@ -165,20 +212,44 @@ function App() {
     setHtmlResult(null);
 
     const formData = new FormData();
-    formData.append('htmlTemplate', selectedHtmlFile);
+    
+    // Create a blob with HTML content instead of file upload
+    const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+    formData.append('htmlTemplate', htmlBlob, 'template.html');
+    
     formData.append('subject', emailSubject || 'Your Document');
+    formData.append('industry', selectedIndustry);
+    formData.append('sendImmediate', sendImmediate.toString());
+    
+    if (!sendImmediate) {
+      formData.append('scheduledDate', scheduledDate);
+      formData.append('scheduledTime', scheduledTime);
+    }
 
     try {
-      const response = await fetch('https://newbackend-sage.vercel.app/api/send-html-template', {
-        method: 'POST',
-        body: formData,
-      });
+      let response;
+  if(sendImmediate==true){
+     response = await fetch('https://newbackend-sage.vercel.app/api/send-html-template', {
+      method: 'POST',
+      body: formData,
+    });
+  }else{
+    response = await fetch('https://newbackend-sage.vercel.app/api/send-html-schedular-template', {
+      method: 'POST',
+      body: formData,
+    });
 
+  }
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTML email sending failed with status ${response.status}`);
       }
 
+      setEmailSubject("")
+      setSelectedIndustry("")
+      setSendImmediate(true)
+      setSelectedHtmlFile(null);
+      setHtmlFileInfo(null);
       const result = await response.json();
       setHtmlResult(result);
     } catch (err) {
@@ -240,94 +311,45 @@ function App() {
     document.body.removeChild(element);
   };
 
+  // Get current date and time for min values
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().slice(0, 5);
+    return { date, time };
+  };
+
+  const { date: currentDate, time: currentTime } = getCurrentDateTime();
+
+  useEffect(()=>{
+getContacts();
+  },[])
+
+  const getContacts=async()=>{
+    try{
+     
+      let response = await axios('http://localhost:3001/api/getIndustries');
+      
+      setContacts(response.data.contacts); 
+
+    }catch(e){
+
+    }
+  }
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
         <h1 style={{ color: '#333', marginBottom: '10px' }}>Enrichify Email System</h1>
-        <p style={{ color: '#666' }}>send HTML email templates</p>
+        <p style={{ color: '#666' }}>Send targeted HTML email templates with scheduling</p>
       </header>
 
       <main style={{ display: 'grid', gap: '30px' }}>
-        {/* PDF Conversion Section */}
-        {/* <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', backgroundColor: '#f9f9f9' }}>
-          <h2 style={{ color: '#333', marginBottom: '20px' }}>Upload PDF</h2>
-          
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <input
-                type="radio"
-                value="html"
-                checked={codeType === 'html'}
-                onChange={(e) => setCodeType(e.target.value)}
-              />
-              HTML
-            </label>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={handleFileSelect}
-              id="file-input"
-              style={{ display: 'none' }}
-            />
-            <label 
-              htmlFor="file-input" 
-              style={{ 
-                display: 'inline-block',
-                padding: '10px 20px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              {selectedFile ? selectedFile.name : 'Choose PDF file'}
-            </label>
-          </div>
-
-          {fileInfo && (
-            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#666' }}>
-              <span style={{ 
-                backgroundColor: '#28a745', 
-                color: 'white', 
-                padding: '2px 8px', 
-                borderRadius: '4px', 
-                marginRight: '10px' 
-              }}>
-                {fileInfo.type}
-              </span>
-              <span>{fileInfo.size}</span>
-            </div>
-          )}
-
-          {error && <div style={{ color: '#dc3545', marginBottom: '20px', fontSize: '14px' }}>{error}</div>}
-
-          <button
-            onClick={handleUpload}
-            disabled={!selectedFile || loading}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: (!selectedFile || loading) ? '#ccc' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: (!selectedFile || loading) ? 'not-allowed' : 'pointer',
-              fontSize: '16px'
-            }}
-          >
-            {loading ? 'Converting...' : 'Convert PDF'}
-          </button>
-        </div> */}
-
-        {/* HTML Template Upload Section */}
+        {/* Enhanced HTML Template Section */}
         <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', backgroundColor: '#f0f8ff' }}>
           <h2 style={{ color: '#333', marginBottom: '20px' }}>Send HTML Email Template</h2>
           
-          {/* <div style={{ marginBottom: '20px' }}>
+          {/* Email Subject */}
+          <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
               Email Subject:
             </label>
@@ -345,45 +367,156 @@ function App() {
                 boxSizing: 'border-box'
               }}
             />
-          </div> */}
-
-          <div style={{ marginBottom: '20px' }}>
-            <input
-              type="file"
-              accept=".html"
-              onChange={handleHtmlFileSelect}
-              id="html-input"
-              style={{ display: 'none' }}
-            />
-            <label 
-              htmlFor="html-input" 
-              style={{ 
-                display: 'inline-block',
-                padding: '10px 20px',
-                backgroundColor: '#17a2b8',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              {selectedHtmlFile ? selectedHtmlFile.name : 'Choose HTML file'}
-            </label>
           </div>
 
-          {htmlFileInfo && (
-            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#666' }}>
-              <span style={{ 
-                backgroundColor: '#17a2b8', 
-                color: 'white', 
-                padding: '2px 8px', 
-                borderRadius: '4px', 
-                marginRight: '10px' 
+          {/* Industry Selection */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+              Target Industry: <span style={{ color: '#dc3545' }}>*</span>
+            </label>
+            <select
+              value={selectedIndustry}
+              onChange={(e) => setSelectedIndustry(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="">Select an industry</option>
+              {contacts?.map((industry) => (
+                <option key={industry?._id} value={industry?.industry}>
+                  {industry?.industry}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Send Timing Options */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold' }}>
+              Send Timing:
+            </label>
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  checked={sendImmediate}
+                  onChange={() => setSendImmediate(true)}
+                />
+                Send Immediately
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  checked={!sendImmediate}
+                  onChange={() => setSendImmediate(false)}
+                />
+                Schedule for Later
+              </label>
+            </div>
+
+            {/* Schedule DateTime */}
+            {!sendImmediate && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', paddingLeft: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                    Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    min={currentDate}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                    Time:
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* HTML Content Input */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label style={{ fontWeight: 'bold' }}>
+                HTML Content: <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <div>
+                <input
+                  type="file"
+                  accept=".html"
+                  onChange={handleHtmlFileSelect}
+                  id="html-input"
+                  style={{ display: 'none' }}
+                />
+                <label 
+                  htmlFor="html-input" 
+                  style={{ 
+                    padding: '6px 12px',
+                    backgroundColor: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Upload HTML File
+                </label>
+              </div>
+            </div>
+            
+           
+            
+            {htmlFileInfo && (
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                Loaded from: <strong>{htmlFileInfo.name}</strong> ({htmlFileInfo.size})
+              </div>
+            )}
+          </div>
+
+          {/* HTML Preview */}
+          {htmlContent && (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                HTML Preview:
+              </label>
+              <div style={{
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                padding: '10px',
+                backgroundColor: '#f8f9fa',
+                maxHeight: '150px',
+                overflow: 'auto'
               }}>
-                {htmlFileInfo.type}
-              </span>
-              <span>{htmlFileInfo.size}</span>
+                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+              </div>
             </div>
           )}
 
@@ -391,18 +524,18 @@ function App() {
 
           <button
             onClick={handleHtmlUpload}
-            disabled={!selectedHtmlFile || htmlLoading}
+            disabled={!htmlContent.trim() || !selectedIndustry || htmlLoading}
             style={{
               padding: '12px 24px',
-              backgroundColor: (!selectedHtmlFile || htmlLoading) ? '#ccc' : '#17a2b8',
+              backgroundColor: (!htmlContent.trim() || !selectedIndustry || htmlLoading) ? '#ccc' : '#17a2b8',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: (!selectedHtmlFile || htmlLoading) ? 'not-allowed' : 'pointer',
+              cursor: (!htmlContent.trim() || !selectedIndustry || htmlLoading) ? 'not-allowed' : 'pointer',
               fontSize: '16px'
             }}
           >
-            {htmlLoading ? 'Sending Emails...' : 'Send HTML Template'}
+            {htmlLoading ? 'Processing...' : sendImmediate ? 'Send Email Template' : 'Schedule Email Template'}
           </button>
         </div>
 
@@ -473,7 +606,7 @@ function App() {
         {htmlResult && (
           <div style={{ border: '1px solid #28a745', borderRadius: '8px', padding: '20px', backgroundColor: '#f8f9fa' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ color: '#28a745', margin: 0 }}>HTML Email Results</h2>
+              <h2 style={{ color: '#28a745', margin: 0 }}>Email Campaign Results</h2>
             </div>
             
             <div style={{ backgroundColor: '#e9ecef', padding: '15px', borderRadius: '4px' }}>
@@ -482,6 +615,12 @@ function App() {
               </div>
               <div style={{ marginBottom: '10px' }}>
                 <strong>Message:</strong> {htmlResult.message}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>Industry:</strong> {selectedIndustry}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>Send Mode:</strong> {sendImmediate ? 'Immediate' : `Scheduled for ${scheduledDate} at ${scheduledTime}`}
               </div>
               <div style={{ marginBottom: '10px' }}>
                 <strong>Total Contacts:</strong> {htmlResult.totalContacts}
