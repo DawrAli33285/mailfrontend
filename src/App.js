@@ -328,7 +328,7 @@ getContacts();
   const getContacts=async()=>{
     try{
      
-      let response = await axios('http://localhost:3001/api/getIndustries');
+      let response = await axios('https://newbackend-sage.vercel.app/api/getIndustries');
       
       setContacts(response.data.contacts); 
 
