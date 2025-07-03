@@ -6,7 +6,10 @@ function App() {
   const [convertedCode, setConvertedCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [templateOption, setTemplateOption] = useState('new');
+const [selectedTemplate, setSelectedTemplate] = useState('');
   const [codeType, setCodeType] = useState('html');
+  const [htmlTemplates,setHtmlTemplates]=useState([])
   const [fileInfo, setFileInfo] = useState(null);
   const [contacts,setContacts]=useState([])
   
@@ -27,9 +30,11 @@ function App() {
 
   // New state for enhanced email features
   const [selectedIndustry, setSelectedIndustry] = useState('');
+  const [selectedCsvFile, setSelectedCsvFile] = useState('');
+  const [recordCount, setRecordCount] = useState(1);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
-  const [htmlContent, setHtmlContent] = useState('');
+  const [htmlContent, setHtmlContent] = useState([]);
   const [sendImmediate, setSendImmediate] = useState(true);
 
   // Industry options
@@ -191,67 +196,55 @@ function App() {
   };
 
   const handleHtmlUpload = async () => {
-    // Validation
-    if (!htmlContent.trim()) {
-      setHtmlError('Please provide HTML content or upload an HTML file');
-      return;
-    }
-
-    if (!selectedIndustry) {
-      setHtmlError('Please select an industry');
-      return;
-    }
-
-    if (!sendImmediate && (!scheduledDate || !scheduledTime)) {
-      setHtmlError('Please select date and time for scheduled sending');
-      return;
-    }
-
     setHtmlLoading(true);
     setHtmlError('');
     setHtmlResult(null);
-
+  
+    if (!selectedHtmlFile) {
+      setHtmlError('No file selected');
+      setHtmlLoading(false);
+      return;
+    }
+  
     const formData = new FormData();
     
-    // Create a blob with HTML content instead of file upload
-    const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-    formData.append('htmlTemplate', htmlBlob, 'template.html');
+    // Create new File object preserving all original metadata
+    const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
+      type: selectedHtmlFile.type,
+      lastModified: selectedHtmlFile.lastModified
+    });
     
+    formData.append('htmlTemplate', htmlFile);
     formData.append('subject', emailSubject || 'Your Document');
     formData.append('industry', selectedIndustry);
     formData.append('sendImmediate', sendImmediate.toString());
+    formData.append('templateOption', templateOption);
     
     if (!sendImmediate) {
       formData.append('scheduledDate', scheduledDate);
       formData.append('scheduledTime', scheduledTime);
     }
-
+    
+    formData.append('selectedTemplate', selectedTemplate);
+  
     try {
-      let response;
-  if(sendImmediate==true){
-     response = await fetch('https://newbackend-sage.vercel.app/api/send-html-template', {
-      method: 'POST',
-      body: formData,
-    });
-  }else{
-    response = await fetch('https://newbackend-sage.vercel.app/api/send-html-schedular-template', {
-      method: 'POST',
-      body: formData,
-    });
-
-  }
+      const endpoint = sendImmediate 
+        ? 'https://newbackend-sage.vercel.app/api/send-html-template'
+        : 'https://newbackend-sage.vercel.app/api/send-html-schedular-template';
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+      });
+  
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTML email sending failed with status ${response.status}`);
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
-
-      setEmailSubject("")
-      setSelectedIndustry("")
-      setSendImmediate(true)
-      setSelectedHtmlFile(null);
-      setHtmlFileInfo(null);
+  
       const result = await response.json();
       setHtmlResult(result);
+      
     } catch (err) {
       setHtmlError(err.message);
     } finally {
@@ -323,12 +316,13 @@ function App() {
 
   useEffect(()=>{
 getContacts();
+getHtmlTemplates();
   },[])
 
   const getContacts=async()=>{
     try{
      
-      let response = await axios('https://newbackend-sage.vercel.app/api/getIndustries');
+      let response = await axios.get('https://newbackend-sage.vercel.app/api/getIndustries');
       console.log(response.data)
       setContacts(response.data.contacts); 
 
@@ -336,12 +330,229 @@ getContacts();
 
     }
   }
+
+
+  const getHtmlTemplates=async()=>{
+    try{
+let response=await axios.get("https://newbackend-sage.vercel.app/api/get-htmls")
+console.log(response.data)
+setHtmlContent(response.data.htmls)
+    }catch(e){
+      
+    }
+  }
+
+
+
+  const getFileNames = () => {
+    const fileNames = new Set();
+    contacts.forEach(contact => {
+      fileNames.add(contact._id);
+    });
+    return Array.from(fileNames);
+  };
+
+  // Get selected file data
+  const getSelectedFileData = () => {
+    return contacts.find(contact => contact._id === selectedCsvFile);
+  };
+
+  // Get max count for selected file
+  const getMaxCount = () => {
+    const fileData = getSelectedFileData();
+    return fileData ? fileData.count : 0;
+  };
+
+  // Convert data to CSV format
+  const convertToCSV = (data) => {
+    if (!data || data.length === 0) return '';
+    
+    const headers = Object.keys(data[0]);
+    const csvHeaders = headers.join(',');
+    
+    const csvRows = data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        // Escape quotes and wrap in quotes if contains comma
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      }).join(',')
+    );
+    
+    return [csvHeaders, ...csvRows].join('\n');
+  };
+
+  // Download CSV file
+  const downloadCSV = () => {
+    if (!selectedCsvFile) {
+      alert('Please select a file first');
+      return;
+    }
+
+    const fileData = getSelectedFileData();
+    if (!fileData) {
+      alert('No data found for selected file');
+      return;
+    }
+
+    // Get the specified number of records
+    const recordsToDownload = fileData.documents.slice(0, recordCount);
+    
+    // Convert to CSV
+    const csvContent = convertToCSV(recordsToDownload);
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${selectedCsvFile.replace('.csv', '')}_${recordCount}_records.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
         <h1 style={{ color: '#333', marginBottom: '10px' }}>Enrichify Email System</h1>
         <p style={{ color: '#666' }}>Send targeted HTML email templates with scheduling</p>
-      
+        <div className="space-y-6">
+        {/* File Selection */}
+        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+  <style>
+    {`
+      .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 8px;
+      }
+      .form-select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .form-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+      }
+      .form-select:disabled {
+        background-color: #f3f4f6;
+        cursor: not-allowed;
+      }
+      .info-box {
+        background-color: #eff6ff;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #bfdbfe;
+        margin-top: 16px;
+      }
+      .info-title {
+        font-weight: 600;
+        color: #1e40af;
+        margin-bottom: 8px;
+      }
+      .info-text {
+        font-size: 14px;
+        color: #1e3a8a;
+        line-height: 1.5;
+      }
+      .download-button {
+        width: 100%;
+        background-color: #2563eb;
+        color: white;
+        font-weight: 500;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        margin-top: 20px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .download-button:hover {
+        background-color: #1d4ed8;
+      }
+      .download-button:disabled {
+        background-color: #d1d5db;
+        cursor: not-allowed;
+      }
+    `}
+  </style>
+
+  {/* File Selection */}
+  <div>
+    <label className="form-label">Select File</label>
+    <select
+      value={selectedCsvFile}
+      onChange={(e) => {
+        setSelectedCsvFile(e.target.value);
+        setRecordCount(1);
+      }}
+      className="form-select"
+    >
+      <option value="">Choose a file...</option>
+      {getFileNames().map(fileName => (
+        <option key={fileName} value={fileName}>
+          {fileName}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Record Count Selection */}
+  <div style={{ marginTop: '20px' }}>
+    <label className="form-label">Number of Records</label>
+    <select
+      value={recordCount}
+      onChange={(e) => setRecordCount(parseInt(e.target.value))}
+      disabled={!selectedCsvFile}
+      className="form-select"
+    >
+      {selectedCsvFile &&
+        Array.from({ length: getMaxCount() }, (_, i) => i + 1).map(num => (
+          <option key={num} value={num}>
+            {num} record{num > 1 ? 's' : ''}
+          </option>
+        ))}
+    </select>
+  </div>
+
+  {/* File Info */}
+  {selectedFile && (
+    <div className="info-box">
+      <div className="info-title">File Information</div>
+      <p className="info-text">
+        <strong>File:</strong> {selectedCsvFile} <br />
+        <strong>Total Records:</strong> {getMaxCount()} <br />
+        <strong>Selected Records:</strong> {recordCount}
+      </p>
+    </div>
+  )}
+
+  {/* Download Button */}
+  <button
+    onClick={downloadCSV}
+    disabled={!selectedCsvFile}
+    className="download-button"
+  >
+    Download CSV
+  </button>
+</div>
+</div>
       </header>
 
       <main style={{ display: 'grid', gap: '30px' }}>
@@ -395,6 +606,106 @@ getContacts();
               ))}
             </select>
           </div>
+
+
+
+          <div style={{ marginBottom: '20px' }}>
+  <div style={{ marginBottom: '15px' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+      Template Option:
+    </label>
+    <select
+      value={templateOption}
+      onChange={(e) => setTemplateOption(e.target.value)}
+      style={{
+        width: '100%',
+        padding: '10px',
+        border: '1px solid #ddd',
+        borderRadius: '4px',
+        fontSize: '14px',
+        boxSizing: 'border-box',
+        marginBottom: '15px'
+      }}
+    >
+      <option value="new">Create New Template</option>
+      <option value="existing">Use Existing Template</option>
+    </select>
+  </div>
+
+  {templateOption === 'existing' ? (
+    <div style={{ marginBottom: '15px' }}>
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+        Select Template:
+      </label>
+      <select
+        value={selectedTemplate}
+        onChange={(e) => {
+          setSelectedTemplate(e.target.value);
+          // Find and set the selected template's content
+          const template = htmlTemplates.find(t => t.fileName === e.target.value);
+          if (template) {
+            setHtmlContent(template.htmlContent);
+          }
+        }}
+        style={{
+          width: '100%',
+          padding: '10px',
+          border: '1px solid #ddd',
+          borderRadius: '4px',
+          fontSize: '14px',
+          boxSizing: 'border-box'
+        }}
+      >
+        <option value="">Select a template</option>
+        {htmlContent?.map((template) => (
+          <option key={template?._id} value={template?.fileName}>
+            {template?.fileName}
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <label style={{ fontWeight: 'bold' }}>
+          HTML Content: <span style={{ color: '#dc3545' }}>*</span>
+        </label>
+        <div>
+          <input
+            type="file"
+            accept=".html"
+            onChange={handleHtmlFileSelect}
+            id="html-input"
+            style={{ display: 'none' }}
+          />
+          <label 
+            htmlFor="html-input" 
+            style={{ 
+              padding: '6px 12px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Upload HTML File
+          </label>
+        </div>
+      </div>
+      
+    
+      
+      {htmlFileInfo && (
+        <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+          Loaded from: <strong>{htmlFileInfo.name}</strong> ({htmlFileInfo.size})
+        </div>
+      )}
+    </>
+  )}
+</div>
+          
 
           {/* Send Timing Options */}
           <div style={{ marginBottom: '20px' }}>
@@ -462,82 +773,25 @@ getContacts();
             )}
           </div>
 
-          {/* HTML Content Input */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <label style={{ fontWeight: 'bold' }}>
-                HTML Content: <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <div>
-                <input
-                  type="file"
-                  accept=".html"
-                  onChange={handleHtmlFileSelect}
-                  id="html-input"
-                  style={{ display: 'none' }}
-                />
-                <label 
-                  htmlFor="html-input" 
-                  style={{ 
-                    padding: '6px 12px',
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '12px'
-                  }}
-                >
-                  Upload HTML File
-                </label>
-              </div>
-            </div>
-            
-           
-            
-            {htmlFileInfo && (
-              <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                Loaded from: <strong>{htmlFileInfo.name}</strong> ({htmlFileInfo.size})
-              </div>
-            )}
-          </div>
-
-          {/* HTML Preview */}
-          {htmlContent && (
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                HTML Preview:
-              </label>
-              <div style={{
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                padding: '10px',
-                backgroundColor: '#f8f9fa',
-                maxHeight: '150px',
-                overflow: 'auto'
-              }}>
-                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-              </div>
-            </div>
-          )}
-
+         
+         
           {htmlError && <div style={{ color: '#dc3545', marginBottom: '20px', fontSize: '14px' }}>{htmlError}</div>}
 
           <button
-            onClick={handleHtmlUpload}
-            disabled={!htmlContent.trim() || !selectedIndustry || htmlLoading}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: (!htmlContent.trim() || !selectedIndustry || htmlLoading) ? '#ccc' : '#17a2b8',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: (!htmlContent.trim() || !selectedIndustry || htmlLoading) ? 'not-allowed' : 'pointer',
-              fontSize: '16px'
-            }}
-          >
-            {htmlLoading ? 'Processing...' : sendImmediate ? 'Send Email Template' : 'Schedule Email Template'}
-          </button>
+  onClick={handleHtmlUpload}
+  disabled={(!selectedTemplate && templateOption === 'existing') || !selectedIndustry || htmlLoading}
+  style={{
+    padding: '12px 24px',
+    backgroundColor: ((!selectedTemplate && templateOption === 'existing') || !selectedIndustry || htmlLoading) ? '#ccc' : '#17a2b8',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: ((!selectedTemplate && templateOption === 'existing') || !selectedIndustry || htmlLoading) ? 'not-allowed' : 'pointer',
+    fontSize: '16px'
+  }}
+>
+  {htmlLoading ? 'Processing...' : sendImmediate ? 'Send Email Template' : 'Schedule Email Template'}
+</button>
         </div>
 
         {/* Contacts Upload Section */}
