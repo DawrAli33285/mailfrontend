@@ -329,7 +329,7 @@ getContacts();
     try{
      
       let response = await axios('https://newbackend-sage.vercel.app/api/getIndustries');
-      
+      console.log(response.data)
       setContacts(response.data.contacts); 
 
     }catch(e){
@@ -341,6 +341,7 @@ getContacts();
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
         <h1 style={{ color: '#333', marginBottom: '10px' }}>Enrichify Email System</h1>
         <p style={{ color: '#666' }}>Send targeted HTML email templates with scheduling</p>
+      
       </header>
 
       <main style={{ display: 'grid', gap: '30px' }}>
@@ -389,7 +390,7 @@ getContacts();
               <option value="">Select an industry</option>
               {contacts?.map((industry) => (
                 <option key={industry?._id} value={industry?.industry}>
-                  {industry?.industry}
+                  {industry?._id}
                 </option>
               ))}
             </select>
