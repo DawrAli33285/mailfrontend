@@ -181,7 +181,7 @@ const [selectedTemplate, setSelectedTemplate] = useState('');
         const errorData = await response.json();
         throw new Error(errorData.error || `Email extraction failed with status ${response.status}`);
       }
-
+alert("Email extracted sucessfully")
       const result = await response.json();
       // Handle both array of strings and array of objects
       const emails = result.emails.map(email => 
