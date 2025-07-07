@@ -200,7 +200,11 @@ alert("Email extracted sucessfully")
     setHtmlError('');
     setHtmlResult(null);
   
-  
+    if (!selectedHtmlFile && templateOption=="new") {
+      setHtmlError('No file selected');
+      setHtmlLoading(false);
+      return;
+    }
   
     const formData = new FormData();
     
