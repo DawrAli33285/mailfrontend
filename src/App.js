@@ -209,12 +209,14 @@ const [selectedTemplate, setSelectedTemplate] = useState('');
     const formData = new FormData();
     
     // Create new File object preserving all original metadata
-    const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
-      type: selectedHtmlFile.type,
-      lastModified: selectedHtmlFile.lastModified
-    });
-    
-    formData.append('htmlTemplate', htmlFile);
+if(templateOption=="new"){
+  const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
+    type: selectedHtmlFile.type,
+    lastModified: selectedHtmlFile.lastModified
+  });
+  
+  formData.append('htmlTemplate', htmlFile);
+}
     formData.append('subject', emailSubject || 'Your Document');
     formData.append('industry', selectedIndustry);
     formData.append('sendImmediate', sendImmediate.toString());
