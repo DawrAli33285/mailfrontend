@@ -34,7 +34,7 @@ const [selectedTemplate, setSelectedTemplate] = useState('');
   const [recordCount, setRecordCount] = useState(1);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
-  const [htmlContent, setHtmlContent] = useState([]);
+  const [htmlContent, setHtmlContent] = useState('');
   const [sendImmediate, setSendImmediate] = useState(true);
 
   // Industry options
@@ -199,22 +199,27 @@ alert("Email extracted sucessfully")
     setHtmlLoading(true);
     setHtmlError('');
     setHtmlResult(null);
-  
+    const formData = new FormData();
     if (!selectedHtmlFile && templateOption=="new") {
       setHtmlError('No file selected');
       setHtmlLoading(false);
       return;
     }
+
+    if(selectedHtmlFile && templateOption=="new"){
+      const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
+        type: selectedHtmlFile.type,
+        lastModified: selectedHtmlFile.lastModified
+      });
+      formData.append('htmlTemplate', htmlFile);
+    }
   
-    const formData = new FormData();
+   
     
     // Create new File object preserving all original metadata
-    const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
-      type: selectedHtmlFile.type,
-      lastModified: selectedHtmlFile.lastModified
-    });
+ 
     
-    formData.append('htmlTemplate', htmlFile);
+
     formData.append('subject', emailSubject || 'Your Document');
     formData.append('industry', selectedIndustry);
     formData.append('sendImmediate', sendImmediate.toString());
@@ -243,7 +248,12 @@ alert("Email extracted sucessfully")
       }
   
       const result = await response.json();
-      setHtmlResult(result);
+      console.log(result)
+      if(result?.stats?.failed){
+        setHtmlResult(result?.stats);
+      }else{
+        setHtmlResult(result);
+      }
       setEmailSubject("")
       setSelectedIndustry("")
       setTemplateOption("new")
@@ -341,7 +351,7 @@ getHtmlTemplates();
     try{
 let response=await axios.get("https://newbackend-sage.vercel.app/api/get-htmls")
 console.log(response.data)
-setHtmlContent(response.data.htmls)
+setHtmlTemplates(response.data.htmls)
     }catch(e){
       
     }
@@ -662,11 +672,11 @@ setHtmlContent(response.data.htmls)
         }}
       >
         <option value="">Select a template</option>
-        {htmlContent?.map((template) => (
+        {htmlTemplates?htmlTemplates?.map((template) => (
           <option key={template?._id} value={template?.fileName}>
             {template?.fileName}
           </option>
-        ))}
+        )):''}
       </select>
     </div>
   ) : (
@@ -873,12 +883,8 @@ setHtmlContent(response.data.htmls)
               <div style={{ marginBottom: '10px' }}>
                 <strong>Status:</strong> {htmlResult.success ? '✅ Success' : '❌ Failed'}
               </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>Message:</strong> {htmlResult.message}
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>Industry:</strong> {selectedIndustry}
-              </div>
+              
+             
               <div style={{ marginBottom: '10px' }}>
                 <strong>Send Mode:</strong> {sendImmediate ? 'Immediate' : `Scheduled for ${scheduledDate} at ${scheduledTime}`}
               </div>
@@ -888,27 +894,13 @@ setHtmlContent(response.data.htmls)
               <div style={{ marginBottom: '10px' }}>
                 <strong>Successful Sends:</strong> {htmlResult.successCount}
               </div>
+              
               {htmlResult.failedCount > 0 && (
                 <div style={{ marginBottom: '10px', color: '#dc3545' }}>
                   <strong>Failed Sends:</strong> {htmlResult.failedCount}
                 </div>
               )}
-              {htmlResult.sampleHtml && (
-                <div style={{ marginTop: '15px' }}>
-                  <strong>Sample HTML Preview:</strong>
-                  <pre style={{ 
-                    backgroundColor: 'white', 
-                    padding: '10px', 
-                    borderRadius: '4px', 
-                    fontSize: '12px',
-                    overflow: 'auto',
-                    maxHeight: '200px',
-                    border: '1px solid #ddd'
-                  }}>
-                    {htmlResult.sampleHtml}
-                  </pre>
-                </div>
-              )}
+            
             </div>
           </div>
         )}
