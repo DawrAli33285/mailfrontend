@@ -200,7 +200,7 @@ const [selectedTemplate, setSelectedTemplate] = useState('');
     setHtmlError('');
     setHtmlResult(null);
   
-    if (!selectedHtmlFile && templateOption=="new") {
+    if (!selectedHtmlFile) {
       setHtmlError('No file selected');
       setHtmlLoading(false);
       return;
@@ -209,14 +209,12 @@ const [selectedTemplate, setSelectedTemplate] = useState('');
     const formData = new FormData();
     
     // Create new File object preserving all original metadata
-if(templateOption=="new"){
-  const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
-    type: selectedHtmlFile.type,
-    lastModified: selectedHtmlFile.lastModified
-  });
-  
-  formData.append('htmlTemplate', htmlFile);
-}
+    const htmlFile = new File([htmlContent], selectedHtmlFile.name, {
+      type: selectedHtmlFile.type,
+      lastModified: selectedHtmlFile.lastModified
+    });
+    
+    formData.append('htmlTemplate', htmlFile);
     formData.append('subject', emailSubject || 'Your Document');
     formData.append('industry', selectedIndustry);
     formData.append('sendImmediate', sendImmediate.toString());
@@ -246,7 +244,12 @@ if(templateOption=="new"){
   
       const result = await response.json();
       setHtmlResult(result);
-      
+      setEmailSubject("")
+      setSelectedIndustry("")
+      setTemplateOption("new")
+      setSelectedTemplate("")
+      setSendImmediate(true)
+      setScheduledDate("")
     } catch (err) {
       setHtmlError(err.message);
     } finally {
